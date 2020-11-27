@@ -3,6 +3,7 @@ import pandas
 import matplotlib.pyplot as plt
 import os
 from argparse import ArgumentParser
+import export_jsbsim_xml as ejx
 
 
 def parse_prop_titles(title_file):
@@ -58,21 +59,46 @@ def export_prop_data(prop_data_list, rpm_list, prop_name, save_dir):
     if not os.path.exists(prop_report_dir):
         os.makedirs(prop_report_dir)
 
-    df.to_csv(os.path.join(prop_report_dir, prop_name + '.csv'))
+    df.to_csv(os.path.join(prop_report_dir, prop_name + '_J-VAR' + '.csv'))
 
     plot_var = ['V', 'Pe', 'Ct', 'Cp', 'PWR', 'Torque', 'Thrust']
     y_labels = {'V': 'V (mph)', 'Pe': 'Pe', 'Ct': 'Ct', 'Cp': 'Cp', 'PWR': 'PWR (Hp)',
                 'Torque': 'Torque (In-Lbf)', 'Thrust': 'Thrust (Lbf)'}
 
+    rpm_var = pandas.DataFrame(rpm_list, columns=['RPM'])
+    for var in plot_var:
+        if var not in ['V', 'Pe']:
+            try:
+                rpm_var[var] = df.loc[df['V'] == 0][var].values
+                plt.figure(figsize=(11, 8.5))
+                plt.plot(rpm_list, df.loc[df['V'] == 0][var])
+                plt.xlabel("RPM")
+                plt.ylabel(y_labels[var])
+                plt.title("APC " + prop_name)
+                plt.savefig(os.path.join(prop_report_dir, prop_name + '_' + '_STATIC-RPM-' + var + '.png'))
+                plt.close()
+            except ValueError:
+                print('Data input format error, see: ' + prop_name)
+
+    rpm_var.to_csv(os.path.join(prop_report_dir, prop_name + '_STATIC-RPM-VAR' + '.csv'))
+
     for var in plot_var:
         plt.figure(figsize=(11, 8.5))
         for rpm in rpm_list:
+            ct = ejx.format_prop_df(df.loc[df['RPM'] == rpm]['J'], df.loc[df['RPM'] == rpm]['Ct'])
+            cp = ejx.format_prop_df(df.loc[df['RPM'] == rpm]['J'], df.loc[df['RPM'] == rpm]['Cp'])
+            jsb_xml_text = ejx.export_jsb_xml(prop_name, '0.001', str(df.loc[0][0]), '2', str(df.loc[0][1]), ct, cp)
+
+            with open(os.path.join(prop_report_dir, 'APC_' + prop_name + '_' + str(int(rpm)) + '.xml'), 'wt') as jsb_prop_xml:
+                jsb_prop_xml.write(jsb_xml_text)
+            jsb_prop_xml.close()
+
             plt.plot(df.loc[df['RPM'] == rpm]['J'], df.loc[df['RPM'] == rpm][var], label=str(rpm))
             plt.legend(title='RPM')
             plt.xlabel("J (Adv Ratio)")
             plt.ylabel(y_labels[var])
             plt.title("APC " + prop_name)
-        plt.savefig(os.path.join(prop_report_dir, prop_name + '_' + var + '.png'))
+        plt.savefig(os.path.join(prop_report_dir, prop_name + '_J-' + var + '.png'))
         plt.close()
 
 

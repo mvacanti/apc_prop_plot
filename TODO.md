@@ -4,3 +4,5 @@
 * TODO export to JSBSim XML
 * TODO allow user option to export CSV
 * TODO allow user chart variables
+* TODO Add Ixx Calculation
+* TODO Add Blades Calculation
